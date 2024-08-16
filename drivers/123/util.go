@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"hash/crc32"
 	"math"
 	"math/rand"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/alist-org/alist/v3/drivers/base"
 	"github.com/alist-org/alist/v3/pkg/utils"
-	"github.com/go-resty/resty/v2"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 )
@@ -23,9 +23,10 @@ import (
 // do others that not defined in Driver interface
 
 const (
-	Api              = "https://www.123pan.com/api"
-	AApi             = "https://www.123pan.com/a/api"
-	BApi             = "https://www.123pan.com/b/api"
+	Api  = "https://www.123pan.com/api"
+	AApi = "https://www.123pan.com/a/api"
+	BApi = "https://www.123912.com/api"
+	//BApi             = "https://www.123pan.com/b/api"
 	MainApi          = BApi
 	SignIn           = MainApi + "/user/sign_in"
 	Logout           = MainApi + "/user/logout"
@@ -196,13 +197,24 @@ func (d *Pan123) login() error {
 func (d *Pan123) request(url string, method string, callback base.ReqCallback, resp interface{}) ([]byte, error) {
 	req := base.RestyClient.R()
 	req.SetHeaders(map[string]string{
-		"origin":        "https://www.123pan.com",
-		"referer":       "https://www.123pan.com/",
+		//"origin":        "https://www.123pan.com",
+		//"referer":       "https://www.123pan.com/",
 		"authorization": "Bearer " + d.AccessToken,
-		"user-agent":    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) alist-client",
-		"platform":      "web",
-		"app-version":   "3",
-		//"user-agent":    base.UserAgent,
+		//"user-agent":    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) alist-client",
+		//"platform":    "web",
+		//"app-version": "3",
+		"content-type":    "application/json",
+		"user-agent":      "123pan/v2.4.5(Android 13:Redmi)",
+		"accept-encoding": "gzip",
+		"osversion":       "Android 13",
+		"loginuuid":       "fc1bdf9a123b4c36ba14113934ee1283",
+		"platform":        "android",
+		"devicetype":      "22041211AC",
+		"x-channel":       "1004",
+		"devicename":      "Redmi",
+		"host":            "www.123912.com",
+		"app-version":     "67",
+		"x-app-version":   "2.4.5",
 	})
 	if callback != nil {
 		callback(req)

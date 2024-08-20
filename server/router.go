@@ -83,6 +83,7 @@ func Init(e *gin.Engine) {
 	static.Static(g, func(handlers ...gin.HandlerFunc) {
 		e.NoRoute(handlers...)
 	})
+	//e.Run()
 }
 
 func admin(g *gin.RouterGroup) {
@@ -142,6 +143,10 @@ func admin(g *gin.RouterGroup) {
 }
 
 func _fs(g *gin.RouterGroup) {
+
+	g.POST("/saveUploadThumb", handles.SaveUploadThumb)
+	g.GET("/getUploadThumb", handles.GetUploadThumb)
+
 	g.Any("/list", handles.FsList)
 	g.Any("/search", middlewares.SearchIndex, handles.Search)
 	g.Any("/get", handles.FsGet)

@@ -1,7 +1,10 @@
 package handles
 
 import (
+	"encoding/csv"
+	"fmt"
 	"math"
+	"os"
 
 	"github.com/alist-org/alist/v3/internal/fs"
 	"github.com/alist-org/alist/v3/internal/offline_download/tool"
@@ -10,6 +13,112 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/xhofe/tache"
 )
+
+type Payload struct {
+	Test [][]string `json:"thumbsUrl"`
+}
+type CSVRecord struct {
+	FileName string `json:"fileName"`
+	FilePath string `json:"filePath"`
+}
+type DeleteRequest struct {
+	FilePath string `json:"filePath"`
+	FileName string `json:"fileName"`
+}
+
+func DeleteEntryFromCSV(filePath, fileName string, csvFilePath string) error {
+	file, err := os.Open(csvFilePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return err
+	}
+
+	var filteredRecords [][]string
+	for _, record := range records {
+		if record[0] != fileName || record[1] != filePath {
+			filteredRecords = append(filteredRecords, record)
+		}
+	}
+
+	if len(records) == len(filteredRecords) {
+		fmt.Println("No matching entry found.")
+		return nil
+	}
+	outputFile, err := os.Create(csvFilePath)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
+
+	writer := csv.NewWriter(outputFile)
+	defer writer.Flush()
+
+	for _, record := range filteredRecords {
+		if err := writer.Write(record); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func CSVToJSONArray(filePath string) ([]CSVRecord, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var jsonRecords []CSVRecord
+	for _, record := range records {
+		if len(record) >= 2 {
+			jsonRecords = append(jsonRecords, CSVRecord{
+				FileName: record[0],
+				FilePath: record[1],
+			})
+		}
+	}
+
+	return jsonRecords, nil
+}
+func SaveUploadThumb(c *gin.Context) {
+
+	var req DeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ErrorStrResp(c, "failed to parse request body", 400, true)
+		return
+	}
+	csvFilePath := "data/metadata.csv"
+	if err := DeleteEntryFromCSV(req.FilePath, req.FileName, csvFilePath); err != nil {
+		common.ErrorResp(c, err, 500, true)
+		return
+	}
+	common.SuccessResp(c)
+}
+
+func GetUploadThumb(c *gin.Context) {
+	csvFilePath := "data/metadata.csv"
+
+	jsonRecords, err := CSVToJSONArray(csvFilePath)
+	if err != nil {
+		common.ErrorResp(c, err, 500, true)
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	common.SuccessResp(c, jsonRecords)
+}
 
 type TaskInfo struct {
 	ID       string      `json:"id"`

@@ -2,7 +2,11 @@ package op
 
 import (
 	"context"
+	"encoding/csv"
+	"os"
 	stdpath "path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Xhofe/go-cache"
@@ -562,6 +566,14 @@ func Put(ctx context.Context, storage driver.Driver, dstDirPath string, file mod
 		return errs.NotImplement
 	}
 	log.Debugf("put file [%s] done", file.GetName())
+	if err == nil {
+		if isVideoFile(file.GetName()) {
+			err = writeToMetadataFile(storage.GetStorage().MountPath+dstDirPath, file.GetName())
+			if err != nil {
+				return errors.WithMessagef(err, "failed to write metadata to file")
+			}
+		}
+	}
 	if storage.Config().NoOverwriteUpload && fi != nil && fi.GetSize() > 0 {
 		if err != nil {
 			// upload failed, recover old obj
@@ -581,4 +593,34 @@ func Put(ctx context.Context, storage driver.Driver, dstDirPath string, file mod
 		}
 	}
 	return errors.WithStack(err)
+}
+func writeToMetadataFile(dirPath, fileName string) error {
+	metadataFilePath := "data/metadata.csv"
+	file, err := os.OpenFile(metadataFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	record := []string{fileName, dirPath}
+	if err := writer.Write(record); err != nil {
+		return err
+	}
+
+	return nil
+}
+func isVideoFile(fileName string) bool {
+	videoExtensions := []string{".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv", ".3gp"}
+
+	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(fileName)))
+
+	for _, videoExt := range videoExtensions {
+		if ext == videoExt {
+			return true
+		}
+	}
+
+	return false
 }

@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-
 	"github.com/alist-org/alist/v3/internal/errs"
 	"github.com/alist-org/alist/v3/internal/model"
 	"github.com/alist-org/alist/v3/pkg/http_range"
 	"github.com/alist-org/alist/v3/pkg/utils"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
 )
 
 type FileStream struct {
@@ -72,6 +73,20 @@ func (f *FileStream) GetExist() model.Obj {
 func (f *FileStream) SetExist(obj model.Obj) {
 	f.Exist = obj
 }
+func convertVideoToMP4(inputPath string) error {
+	cmd := exec.Command("ffmpeg", "-i", inputPath, "-c:v", "libx264", "-crf", "24", "-preset", "veryfast", "-c:a", "aac", inputPath+".mp4")
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("Failed to convert video: %s\n", stderr.String())
+		return err
+	}
+
+	return nil
+}
 
 // CacheFullInTempFile save all data into tmpFile. Not recommended since it wears disk,
 // and can't start upload until the file is written. It's not thread-safe!
@@ -85,6 +100,26 @@ func (f *FileStream) CacheFullInTempFile() (model.File, error) {
 	tmpF, err := utils.CreateTempFile(f.Reader, f.GetSize())
 	if err != nil {
 		return nil, err
+	}
+	if strings.HasPrefix(f.Mimetype, "video/") && f.Mimetype != "video/mp4" {
+		f.GetName()
+		err := convertVideoToMP4(tmpF.Name()) // 假设convertVideoToMP4接受两个文件名
+		if err != nil {
+			return nil, err
+		}
+		tmpF.Close()
+		// 删除原文件并尝试重命名新文件（如果系统不支持直接重命名）
+		if err := os.Remove(tmpF.Name()); err != nil {
+			return nil, err
+		}
+		err = os.Rename(tmpF.Name()+".mp4", tmpF.Name())
+		if err != nil {
+			return nil, err
+		}
+		tmpF, err = os.Open(tmpF.Name())
+		if err != nil {
+			return nil, err
+		}
 	}
 	f.Add(tmpF)
 	f.tmpFile = tmpF

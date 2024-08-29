@@ -612,8 +612,7 @@ func writeToMetadataFile(dirPath, fileName string) error {
 	return nil
 }
 func isVideoFile(fileName string) bool {
-	videoExtensions := []string{".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv", ".3gp"}
-
+	videoExtensions := []string{".mp4", ".flv"}
 	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(fileName)))
 
 	for _, videoExt := range videoExtensions {

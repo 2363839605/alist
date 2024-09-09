@@ -26,7 +26,7 @@ const (
 	Api  = "https://www.123pan.com/api"
 	AApi = "https://www.123pan.com/a/api"
 	BApi = "https://www.123912.com/api"
-	//BApi             = "https://www.123pan.com/b/api"
+	BApi1             = "https://www.123pan.com/b/api"
 	MainApi          = BApi
 	SignIn           = MainApi + "/user/sign_in"
 	Logout           = MainApi + "/user/logout"
@@ -37,12 +37,12 @@ const (
 	Move             = MainApi + "/file/mod_pid"
 	Rename           = MainApi + "/file/rename"
 	Trash            = MainApi + "/file/trash"
-	UploadRequest    = MainApi + "/file/upload_request"
-	UploadComplete   = MainApi + "/file/upload_complete"
+	UploadRequest    = BApi1 + "/file/upload_request"
+	UploadComplete   = BApi1 + "/file/upload_complete"
 	S3PreSignedUrls  = MainApi + "/file/s3_repare_upload_parts_batch"
 	S3Auth           = MainApi + "/file/s3_upload_object/auth"
-	UploadCompleteV2 = MainApi + "/file/upload_complete/v2"
-	S3Complete       = MainApi + "/file/s3_complete_multipart_upload"
+	UploadCompleteV2 = BApi1 + "/file/upload_complete/v2"
+	S3Complete       = BApi1 + "/file/s3_complete_multipart_upload"
 	//AuthKeySalt      = "8-8D$sL8gPjom7bk#cY"
 )
 

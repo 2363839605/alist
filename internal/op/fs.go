@@ -2,10 +2,11 @@ package op
 
 import (
 	"context"
-	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"os"
 	stdpath "path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -567,7 +568,7 @@ func Put(ctx context.Context, storage driver.Driver, dstDirPath string, file mod
 	}
 	log.Debugf("put file [%s] done", file.GetName())
 	if err == nil {
-		if isVideoFile(file.GetName()) {
+		if strings.HasPrefix(file.GetMimetype(), "video/") {
 			err = writeToMetadataFile(storage.GetStorage().MountPath+dstDirPath, file.GetName())
 			if err != nil {
 				return errors.WithMessagef(err, "failed to write metadata to file")
@@ -594,32 +595,40 @@ func Put(ctx context.Context, storage driver.Driver, dstDirPath string, file mod
 	}
 	return errors.WithStack(err)
 }
-func writeToMetadataFile(dirPath, fileName string) error {
-	metadataFilePath := "data/metadata.csv"
-	file, err := os.OpenFile(metadataFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
 
-	record := []string{fileName, dirPath}
-	if err := writer.Write(record); err != nil {
-		return err
-	}
-
-	return nil
+type Metadata struct {
+	FileName string `json:"fileName"`
+	FilePath string `json:"filePath"`
 }
-func isVideoFile(fileName string) bool {
-	videoExtensions := []string{".mp4", ".flv"}
-	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(fileName)))
+type MetadataSlice []Metadata
 
-	for _, videoExt := range videoExtensions {
-		if ext == videoExt {
-			return true
+func writeToMetadataFile(dirPath, fileName string) error {
+	metadataFilePath := "data/metadata.json"
+	newMetadata := Metadata{
+		FileName: fileName,
+		FilePath: dirPath,
+	}
+	var existingMetadata MetadataSlice
+	fileBytes, err := ioutil.ReadFile(metadataFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err == nil && len(fileBytes) > 0 {
+		if err := json.Unmarshal(fileBytes, &existingMetadata); err != nil {
+			return fmt.Errorf("error parsing existing metadata: %w", err)
 		}
 	}
 
-	return false
+	existingMetadata = append(existingMetadata, newMetadata)
+	outputFile, err := os.Create(metadataFilePath)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
+
+	encoder := json.NewEncoder(outputFile)
+	if err := encoder.Encode(existingMetadata); err != nil {
+		return err
+	}
+	return nil
 }

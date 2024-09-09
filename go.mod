@@ -87,6 +87,7 @@ require (
 	github.com/ipfs/boxo v0.12.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	gopkg.in/vansante/go-ffprobe.v2 v2.2.0 // indirect
 )
 
 require (

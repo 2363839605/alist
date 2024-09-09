@@ -73,18 +73,32 @@ func (f *FileStream) GetExist() model.Obj {
 func (f *FileStream) SetExist(obj model.Obj) {
 	f.Exist = obj
 }
+func isH264Video(filePath string) (bool, error) {
+	cmd1 := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=codec_name",
+		"-of", "csv",
+		filePath)
+	var out bytes.Buffer
+	cmd1.Stdout = &out
+	err := cmd1.Run()
+	if err != nil {
+		fmt.Println(cmd1)
+		return false, err
+	}
+	codecName := strings.TrimSpace(out.String())
+	return strings.HasSuffix(codecName, "h264") || strings.HasSuffix(codecName, "h265"), nil
+}
 func convertVideoToMP4(inputPath string) error {
 	cmd := exec.Command("ffmpeg", "-i", inputPath, "-c:v", "libx264", "-crf", "24", "-preset", "veryfast", "-c:a", "aac", inputPath+".mp4")
-	var out bytes.Buffer
 	var stderr bytes.Buffer
-	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
 		fmt.Printf("Failed to convert video: %s\n", stderr.String())
 		return err
 	}
-
 	return nil
 }
 
@@ -101,26 +115,32 @@ func (f *FileStream) CacheFullInTempFile() (model.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if strings.HasPrefix(f.Mimetype, "video/") && f.Mimetype != "video/mp4" {
-		f.GetName()
-		err := convertVideoToMP4(tmpF.Name()) // 假设convertVideoToMP4接受两个文件名
+	if strings.HasPrefix(f.GetMimetype(), "video/") {
+		isH264, err := isH264Video(tmpF.Name())
 		if err != nil {
+			fmt.Printf("Error checking video: %v\n", err)
 			return nil, err
 		}
-		tmpF.Close()
-		// 删除原文件并尝试重命名新文件（如果系统不支持直接重命名）
-		if err := os.Remove(tmpF.Name()); err != nil {
-			return nil, err
-		}
-		err = os.Rename(tmpF.Name()+".mp4", tmpF.Name())
-		if err != nil {
-			return nil, err
-		}
-		tmpF, err = os.Open(tmpF.Name())
-		if err != nil {
-			return nil, err
+		if !isH264 {
+			err := convertVideoToMP4(tmpF.Name())
+			if err != nil {
+				return nil, err
+			}
+			tmpF.Close()
+			if err := os.Remove(tmpF.Name()); err != nil {
+				return nil, err
+			}
+			err = os.Rename(tmpF.Name()+".mp4", tmpF.Name())
+			if err != nil {
+				return nil, err
+			}
+			tmpF, err = os.Open(tmpF.Name())
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
+
 	f.Add(tmpF)
 	f.tmpFile = tmpF
 	f.Reader = tmpF

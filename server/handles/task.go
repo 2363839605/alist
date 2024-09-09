@@ -1,107 +1,72 @@
 package handles
 
 import (
-	"encoding/csv"
-	"fmt"
-	"math"
-	"os"
-
+	"encoding/json"
 	"github.com/alist-org/alist/v3/internal/fs"
 	"github.com/alist-org/alist/v3/internal/offline_download/tool"
 	"github.com/alist-org/alist/v3/pkg/utils"
 	"github.com/alist-org/alist/v3/server/common"
 	"github.com/gin-gonic/gin"
 	"github.com/xhofe/tache"
+	"io/ioutil"
+	"math"
 )
 
-type Payload struct {
-	Test [][]string `json:"thumbsUrl"`
-}
-type CSVRecord struct {
-	FileName string `json:"fileName"`
-	FilePath string `json:"filePath"`
-}
 type DeleteRequest struct {
 	FilePath string `json:"filePath"`
 	FileName string `json:"fileName"`
 }
 
-func DeleteEntryFromCSV(filePath, fileName string, csvFilePath string) error {
-	file, err := os.Open(csvFilePath)
+type Metadata struct {
+	FilePath string `json:"filePath"`
+	FileName string `json:"fileName"`
+}
+
+type MetadataSlice []Metadata
+
+type EntryKey struct {
+	FilePath string
+	FileName string
+}
+
+func DeleteEntryFromJSON(key EntryKey, filePath string) error {
+	// 读取 JSON 文件
+	fileBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
+	var metadataSlice MetadataSlice
+	if err := json.Unmarshal(fileBytes, &metadataSlice); err != nil {
 		return err
 	}
-
-	var filteredRecords [][]string
-	for _, record := range records {
-		if record[0] != fileName || record[1] != filePath {
-			filteredRecords = append(filteredRecords, record)
+	var newSlice MetadataSlice
+	for _, item := range metadataSlice {
+		if item.FilePath != key.FilePath || item.FileName != key.FileName {
+			newSlice = append(newSlice, item)
 		}
 	}
-
-	if len(records) == len(filteredRecords) {
-		fmt.Println("No matching entry found.")
+	if len(metadataSlice) == len(newSlice) {
 		return nil
 	}
-	outputFile, err := os.Create(csvFilePath)
+	newJSONBytes, err := json.MarshalIndent(newSlice, "", "  ")
 	if err != nil {
 		return err
 	}
-	defer outputFile.Close()
-
-	writer := csv.NewWriter(outputFile)
-	defer writer.Flush()
-
-	for _, record := range filteredRecords {
-		if err := writer.Write(record); err != nil {
-			return err
-		}
+	if err := ioutil.WriteFile(filePath, newJSONBytes, 0644); err != nil {
+		return err
 	}
 
 	return nil
 }
-
-func CSVToJSONArray(filePath string) ([]CSVRecord, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	var jsonRecords []CSVRecord
-	for _, record := range records {
-		if len(record) >= 2 {
-			jsonRecords = append(jsonRecords, CSVRecord{
-				FileName: record[0],
-				FilePath: record[1],
-			})
-		}
-	}
-
-	return jsonRecords, nil
-}
 func SaveUploadThumb(c *gin.Context) {
-
 	var req DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ErrorStrResp(c, "failed to parse request body", 400, true)
 		return
 	}
-	csvFilePath := "data/metadata.csv"
-	if err := DeleteEntryFromCSV(req.FilePath, req.FileName, csvFilePath); err != nil {
+	jsonFilePath := "data/metadata.json"
+	key := EntryKey{FilePath: req.FilePath, FileName: req.FileName}
+	if err := DeleteEntryFromJSON(key, jsonFilePath); err != nil {
 		common.ErrorResp(c, err, 500, true)
 		return
 	}
@@ -109,15 +74,25 @@ func SaveUploadThumb(c *gin.Context) {
 }
 
 func GetUploadThumb(c *gin.Context) {
-	csvFilePath := "data/metadata.csv"
+	jsonFilePath := "data/metadata.json"
 
-	jsonRecords, err := CSVToJSONArray(csvFilePath)
+	metadataSlice, err := ReadMetadataFromJSON(jsonFilePath)
 	if err != nil {
 		common.ErrorResp(c, err, 500, true)
-		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	common.SuccessResp(c, jsonRecords)
+	common.SuccessResp(c, metadataSlice)
+}
+func ReadMetadataFromJSON(filePath string) (MetadataSlice, error) {
+	var metadataSlice MetadataSlice
+	fileBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(fileBytes, &metadataSlice); err != nil {
+		return nil, err
+	}
+	return metadataSlice, nil
 }
 
 type TaskInfo struct {

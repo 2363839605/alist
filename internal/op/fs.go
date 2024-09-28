@@ -629,7 +629,6 @@ func writeToMetadataFile(dirPath, fileName string) error {
 		return err
 	}
 	defer outputFile.Close()
-
 	encoder := json.NewEncoder(outputFile)
 	if err := encoder.Encode(existingMetadata); err != nil {
 		return err

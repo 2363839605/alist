@@ -109,7 +109,6 @@ func (d *Alias) link(ctx context.Context, dst, sub string, args model.LinkArgs) 
 				utils.EncodePath(reqPath, true),
 				sign.Sign(reqPath)),
 		}
-
 		return link, nil
 	}
 	link, _, err := fs.Link(ctx, reqPath, args)

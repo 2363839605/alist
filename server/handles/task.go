@@ -58,6 +58,7 @@ func DeleteEntryFromJSON(key EntryKey, filePath string) error {
 
 	return nil
 }
+
 func SaveUploadThumb(c *gin.Context) {
 	var req DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

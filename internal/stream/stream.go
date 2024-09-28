@@ -73,6 +73,7 @@ func (f *FileStream) GetExist() model.Obj {
 func (f *FileStream) SetExist(obj model.Obj) {
 	f.Exist = obj
 }
+
 func isH264Video(filePath string) (bool, error) {
 	cmd1 := exec.Command("ffprobe",
 		"-v", "error",
